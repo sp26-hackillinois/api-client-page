@@ -94,7 +94,7 @@ function PaymentModal({ onMicropay, onClose }: { onMicropay: () => void; onClose
         </div>
         <div className="modal-option modal-option-new">
           <div className="modal-option-badge modal-badge-new">✦ Powered by Solana</div>
-          <div className="modal-option-title modal-title-new">Micropay x402 · Powered by Solana</div>
+          <div className="modal-option-title modal-title-new">Pay Per Call · Micropay</div>
           <div className="modal-option-desc">No upfront cost. Each API call costs exactly $0.05, settled instantly on Solana. No subscriptions, no minimums, no waste.</div>
           <ul className="modal-green-list">
             <li>✓ Pay only for what you use</li>
