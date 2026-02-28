@@ -1,105 +1,454 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePayment } from '../hooks/usePayment';
 
-export default function PromptPayAI() {
-    const [prompt, setPrompt] = useState<string>('');
-    const [result, setResult] = useState<string>('');
-    const { isLoading, error, signature, executePayment } = usePayment();
+declare global {
+  interface Window {
+    phantom?: { solana?: { isPhantom?: boolean; connect: () => Promise<{ publicKey: { toString: () => string } }>; signAndSendTransaction: (tx: unknown) => Promise<{ signature: string }> } };
+    solana?: { isPhantom?: boolean; connect: () => Promise<{ publicKey: { toString: () => string } }>; signAndSendTransaction: (tx: unknown) => Promise<{ signature: string }> };
+  }
+}
 
-    const handleGenerate = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!prompt.trim()) return;
+type View = 'landing' | 'console';
+type PaymentStatus = 'pending' | 'confirmed' | 'failed';
+type MessageRole = 'user' | 'assistant' | 'tool_call' | 'payment' | 'confirmed';
+type Message = {
+  role: MessageRole;
+  content: string;
+  toolName?: string;
+  amountUsd?: number;
+  paymentStatus?: PaymentStatus;
+  paymentSignature?: string;
+  isTyping?: boolean;
+};
 
-        try {
-            setResult('');
-            await executePayment();
-            setResult(`Artwork successfully generated for: "${prompt}"`);
-        } catch (err) {
-            console.error(err);
-        }
-    };
+const TICKERS = [
+  { sym: 'AAPL', val: '$189.42', chg: '+1.2%', up: true },
+  { sym: 'TSLA', val: '$241.18', chg: '-0.8%', up: false },
+  { sym: 'BTC',  val: '$67,420', chg: '+2.4%', up: true },
+  { sym: 'SOL',  val: '$142.30', chg: '+3.1%', up: true },
+];
 
-    return (
-        <main className="min-h-screen bg-neutral-950 text-white flex flex-col items-center justify-center p-6 selection:bg-indigo-500/30">
-            <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-3xl shadow-2xl p-8 transition-transform hover:scale-[1.01] duration-300">
-                <h1 className="text-4xl font-black tracking-tight bg-gradient-to-br from-indigo-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-3">
-                    PromptPay AI
-                </h1>
-                <p className="text-neutral-400 mb-8 text-sm">
-                    Generate premium AI imagery instantly. Powered by frictionless Solana micropayments.
-                </p>
+const ENDPOINTS = [
+  { name: 'GET /quote', price: '$0.05', desc: 'Real-time stock quote' },
+  { name: 'GET /ohlcv', price: '$0.05', desc: 'OHLCV candlestick data' },
+  { name: 'GET /news',  price: '$0.05', desc: 'Market news feed' },
+  { name: 'GET /macro', price: '$0.05', desc: 'Macro economic indicators' },
+];
 
-                <form onSubmit={handleGenerate} className="space-y-6">
-                    <div className="space-y-2">
-                        <label htmlFor="prompt" className="block text-sm font-medium text-neutral-300">
-                            Creative Prompt
-                        </label>
-                        <input
-                            id="prompt"
-                            type="text"
-                            value={prompt}
-                            onChange={(e) => setPrompt(e.target.value)}
-                            placeholder="A neon-lit cyberpunk market in the rain..."
-                            className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow placeholder:text-neutral-600"
-                            disabled={isLoading}
-                            required
-                        />
-                    </div>
+const SUGGESTED_PROMPTS = [
+  'Get AAPL real-time quote',
+  'TSLA OHLCV last 7 days',
+  'Latest Fed rate decision news',
+  'US GDP & inflation data',
+];
 
-                    <button
-                        type="submit"
-                        disabled={isLoading || !prompt.trim()}
-                        className="w-full relative group overflow-hidden bg-indigo-600 hover:bg-indigo-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white font-semibold py-3.5 px-4 rounded-xl transition-all active:scale-[0.98] disabled:active:scale-100 flex items-center justify-center"
-                    >
-                        {isLoading ? (
-                            <svg className="animate-spin h-5 w-5 text-white/70" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                        ) : (
-                            <span>Generate (Costs $0.05)</span>
-                        )}
-                        <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite] pointer-events-none" />
-                    </button>
-                </form>
+function detectTool(text: string): string {
+  const t = text.toLowerCase();
+  if (t.includes('quote') || t.includes('aapl') || t.includes('tsla') || t.includes('price')) return 'GET /quote — Real-time Quote';
+  if (t.includes('ohlcv') || t.includes('candle')) return 'GET /ohlcv — Candlestick Data';
+  if (t.includes('news') || t.includes('fed') || t.includes('rate')) return 'GET /news — Market News';
+  if (t.includes('gdp') || t.includes('inflation') || t.includes('macro')) return 'GET /macro — Macro Indicators';
+  return 'GET /quote — Market Data';
+}
 
-                {error && (
-                    <div className="mt-6 p-4 bg-red-950/40 border border-red-500/20 rounded-xl animate-in fade-in slide-in-from-bottom-2">
-                        <p className="text-red-400 text-sm font-medium">{error}</p>
-                    </div>
-                )}
+function TypewriterText({ text, onDone }: { text: string; onDone?: () => void }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    let i = 0; setDisplayed(''); setDone(false);
+    const iv = setInterval(() => {
+      if (i < text.length) { setDisplayed(text.slice(0, i + 1)); i++; }
+      else { clearInterval(iv); setDone(true); onDone?.(); }
+    }, 18);
+    return () => clearInterval(iv);
+  }, [text]);
+  return <span>{displayed}{!done && <span className="cur">▊</span>}</span>;
+}
 
-                {signature && (
-                    <div className="mt-6 space-y-4 animate-in fade-in slide-in-from-bottom-2">
-                        <div className="p-4 bg-green-950/30 border border-green-500/20 rounded-xl flex flex-col gap-2">
-                            <div className="flex items-center gap-2">
-                                <span className="relative flex h-3 w-3">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                </span>
-                                <p className="text-green-400 text-sm font-bold">Payment Confirmed</p>
-                            </div>
-                            <a
-                                href={`https://explorer.solana.com/tx/${signature}?cluster=devnet`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs text-green-300 hover:text-green-200 transition-colors truncate block"
-                                title={signature}
-                            >
-                                Tx: {signature}
-                            </a>
-                        </div>
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function PaymentModal({ onMicropay, onClose }: { onMicropay: () => void; onClose: () => void }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">Access API Console</div>
+          <div className="modal-sub">Choose how you want to pay for API calls</div>
+        </div>
 
-                        {result && (
-                            <div className="p-5 bg-neutral-800/50 border border-neutral-700/50 rounded-xl">
-                                <p className="text-indigo-200 text-sm text-center font-medium">{result}</p>
-                            </div>
-                        )}
-                    </div>
-                )}
+        {/* OPTION A — old way */}
+        <div className="modal-option modal-option-old">
+          <div className="modal-option-badge modal-badge-old">Traditional</div>
+          <div className="modal-option-title">Add $10.00 Credit</div>
+          <div className="modal-option-desc">Pre-load a balance before making any API calls. Unused credits don't roll over. Minimum top-up required.</div>
+          <ul className="modal-pain-list">
+            <li>⚠ Pay upfront before using anything</li>
+            <li>⚠ Lose unused balance at month end</li>
+            <li>⚠ Requires credit card on file</li>
+            <li>⚠ Subscriptions lock you in</li>
+          </ul>
+          <button className="modal-btn-old" disabled>Add $10 Credit</button>
+        </div>
+
+        {/* DIVIDER */}
+        <div className="modal-divider">
+          <div className="modal-divider-line" />
+          <span className="modal-divider-text">or</span>
+          <div className="modal-divider-line" />
+        </div>
+
+        {/* OPTION B — Micropay */}
+        <div className="modal-option modal-option-new">
+          <div className="modal-option-badge modal-badge-new">✦ Powered by Solana</div>
+          <div className="modal-option-title modal-title-new">Pay Per Call · Micropay</div>
+          <div className="modal-option-desc">No upfront cost. Each API call costs exactly $0.05, settled instantly on Solana. No subscriptions, no minimums, no waste.</div>
+          <ul className="modal-green-list">
+            <li>✓ Pay only for what you use</li>
+            <li>✓ Instant Solana settlement</li>
+            <li>✓ No credit card required</li>
+            <li>✓ $0.05 per call, that's it</li>
+          </ul>
+          <button className="modal-btn-new" onClick={onMicropay}>
+            Connect Wallet &amp; Start →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── LANDING PAGE ─────────────────────────────────────────────────────────────
+function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
+  return (
+    <div className="landing">
+      {/* TOP NAV */}
+      <nav className="landing-nav">
+        <span className="landing-logo">QuantFeed</span>
+        <div className="landing-nav-links">
+          <a href="#" className="landing-nav-link">Docs</a>
+          <a href="#" className="landing-nav-link">Pricing</a>
+          <a href="#" className="landing-nav-link">Endpoints</a>
+          <button className="landing-nav-cta" onClick={onEnterConsole}>API Console →</button>
+        </div>
+      </nav>
+
+      {/* HERO */}
+      <div className="landing-hero">
+        <div className="landing-hero-badge">Financial Market Data API</div>
+        <h1 className="landing-h1">Real-time market data.<br />Pay per call.</h1>
+        <p className="landing-p">
+          QuantFeed delivers institutional-grade financial data — quotes, OHLCV, news, and macro indicators — with no subscriptions, no minimums. Each API call costs exactly $0.05, settled instantly on Solana via Micropay x402.
+        </p>
+        <div className="landing-hero-actions">
+          <button className="landing-btn-primary" onClick={onEnterConsole}>Go to API Console →</button>
+          <a href="#" className="landing-btn-secondary">View Docs</a>
+        </div>
+
+        {/* LIVE TICKERS */}
+        <div className="landing-tickers">
+          {TICKERS.map(t => (
+            <div key={t.sym} className="landing-ticker">
+              <span className="landing-ticker-sym">{t.sym}</span>
+              <span className="landing-ticker-val">{t.val}</span>
+              <span className={t.up ? 'landing-ticker-up' : 'landing-ticker-dn'}>{t.chg}</span>
             </div>
-        </main>
-    );
+          ))}
+        </div>
+      </div>
+
+      {/* FEATURES */}
+      <div className="landing-features">
+        <div className="landing-feature">
+          <div className="landing-feature-icon">◈</div>
+          <div className="landing-feature-title">4 Endpoints</div>
+          <div className="landing-feature-desc">Quotes, OHLCV, news, and macro data. REST API with JSON responses.</div>
+        </div>
+        <div className="landing-feature">
+          <div className="landing-feature-icon">⬡</div>
+          <div className="landing-feature-title">$0.05 Per Call</div>
+          <div className="landing-feature-desc">No monthly fees. No minimums. Pay exactly for what you use.</div>
+        </div>
+        <div className="landing-feature">
+          <div className="landing-feature-icon">↯</div>
+          <div className="landing-feature-title">Solana Settlement</div>
+          <div className="landing-feature-desc">Payments settle in &lt;1s on Solana Devnet via Micropay x402 protocol.</div>
+        </div>
+        <div className="landing-feature">
+          <div className="landing-feature-icon">▶</div>
+          <div className="landing-feature-title">Live Console</div>
+          <div className="landing-feature-desc">Test every endpoint in the browser. See transactions settle in real-time.</div>
+        </div>
+      </div>
+
+      {/* ENDPOINTS TABLE */}
+      <div className="landing-endpoints">
+        <div className="landing-section-title">Endpoints</div>
+        <div className="landing-ep-table">
+          {ENDPOINTS.map(e => (
+            <div key={e.name} className="landing-ep-row">
+              <span className="landing-ep-name">{e.name}</span>
+              <span className="landing-ep-desc">{e.desc}</span>
+              <span className="landing-ep-price">{e.price} / call</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CTA BAR */}
+      <div className="landing-cta-bar">
+        <div className="landing-cta-text">No credit card. No signup. Just connect your wallet.</div>
+        <button className="landing-btn-primary" onClick={onEnterConsole}>Try the API Console →</button>
+      </div>
+
+      <div className="landing-footer">
+        QuantFeed v2.1.0 · Payments by <span>Micropay x402</span> · Solana Devnet
+      </div>
+    </div>
+  );
+}
+
+// ─── CONSOLE ──────────────────────────────────────────────────────────────────
+function Console({ walletAddress, onConnectWallet }: { walletAddress: string | null; onConnectWallet: () => Promise<string | null> }) {
+  const [messages, setMessages] = useState<Message[]>([{
+    role: 'assistant',
+    content: 'QuantFeed API Console ready. Each query is billed per-call via Solana micropayments — no subscriptions, no minimums. What data do you need?',
+  }]);
+  const [input, setInput] = useState('');
+  const [isThinking, setIsThinking] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { isLoading: isPaymentLoading, executePayment } = usePayment();
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  const addMessage = (msg: Message) => setMessages(prev => [...prev, msg]);
+
+  const handleSend = async (text?: string) => {
+    const trimmed = (text ?? input).trim();
+    if (!trimmed || isThinking || isPaymentLoading) return;
+    let wallet = walletAddress;
+    if (!wallet) { wallet = await onConnectWallet(); if (!wallet) return; }
+
+    addMessage({ role: 'user', content: trimmed });
+    setInput('');
+    setIsThinking(true);
+    addMessage({ role: 'tool_call', content: '', toolName: detectTool(trimmed), amountUsd: 0.05 });
+    addMessage({ role: 'payment', content: '', amountUsd: 0.05, paymentStatus: 'pending' });
+    setIsThinking(false);
+
+    try {
+      const result = await executePayment(0.05, wallet);
+      setMessages(prev => prev.map((m, i) => i === prev.length - 1
+        ? { ...m, paymentStatus: 'confirmed' as PaymentStatus, paymentSignature: result.signature } : m));
+      addMessage({ role: 'confirmed', content: 'Payment confirmed. Fetching market data...' });
+      addMessage({
+        role: 'assistant',
+        content: `Query executed successfully.\n\nCharged: $${result.amount_usd} USD (${result.amount_sol_charged} SOL @ ${result.exchange_rate_sol} SOL/USD)\nTx: ${result.signature}\n\n— Powered by Micropay x402 Protocol`,
+        isTyping: true,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Payment failed.';
+      setMessages(prev => prev.map((m, i) => i === prev.length - 1
+        ? { ...m, paymentStatus: 'failed' as PaymentStatus } : m));
+      addMessage({ role: 'assistant', content: `Error: ${msg}` });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  return (
+    <div className="console-root">
+      {/* SIDEBAR */}
+      <aside className="sidebar">
+        <div className="sb-header">
+          <span className="sb-logo">QuantFeed</span>
+          <span className="sb-tag">Financial Market Data API</span>
+        </div>
+        <div className="sb-ticker-bar">
+          {TICKERS.map(t => (
+            <div key={t.sym} className="ticker-row">
+              <span className="ticker-sym">{t.sym}</span>
+              <span className="ticker-val">{t.val}</span>
+              <span className={t.up ? 'ticker-up' : 'ticker-dn'}>{t.chg}</span>
+            </div>
+          ))}
+        </div>
+        <nav className="sb-nav">
+          {[['▦','Overview'],['⬡','Endpoints'],['◈','Pricing'],['▶','API Console'],['≡','Docs']].map(([icon, label]) => (
+            <a key={label} href="#" className={`nav-item ${label === 'API Console' ? 'nav-item-active' : ''}`}>
+              <i className="nav-icon">{icon}</i>{label}
+            </a>
+          ))}
+        </nav>
+        <div className="sb-endpoints">
+          <div className="ep-label">Endpoints · Pay-per-call</div>
+          {ENDPOINTS.map(e => (
+            <div key={e.name} className="ep-row">
+              <span className="ep-name">{e.name}</span>
+              <span className="ep-price">{e.price}</span>
+            </div>
+          ))}
+        </div>
+        <div className="sb-footer">
+          <p>v2.1.0 · REST API · Solana Devnet</p>
+          <p>Payments by <span>Micropay x402</span></p>
+        </div>
+      </aside>
+
+      {/* MAIN */}
+      <div className="main">
+        <header className="header">
+          <div className="hdr-left">
+            <div className="live-dot" />
+            <div>
+              <div className="hdr-title">API Console</div>
+              <div className="hdr-sub">Real-time financial data · Pay-per-call via Solana</div>
+            </div>
+          </div>
+          <div>
+            {walletAddress ? (
+              <div className="wallet-pill">
+                <div className="live-dot" style={{ width: 5, height: 5 }} />
+                {walletAddress.slice(0, 4)}...{walletAddress.slice(-4)}
+              </div>
+            ) : (
+              <button className="btn" onClick={onConnectWallet}>Connect Wallet</button>
+            )}
+          </div>
+        </header>
+
+        <div className="chat-area">
+          {messages.map((msg, i) => {
+            if (msg.role === 'user') return (
+              <div key={i} className="msg-row msg-row-user">
+                <div className="bubble-user">{msg.content}</div>
+              </div>
+            );
+            if (msg.role === 'assistant') return (
+              <div key={i} className="msg-row msg-row-agent">
+                <div className="bubble-agent">
+                  {msg.isTyping ? <TypewriterText text={msg.content} /> : msg.content}
+                </div>
+              </div>
+            );
+            if (msg.role === 'tool_call') return (
+              <div key={i} className="msg-row msg-row-sys">
+                <div className="tool-card">
+                  <div className="tool-lbl">⬡ Endpoint Called</div>
+                  <div className="tool-name">{msg.toolName}</div>
+                  <div className="tool-sub">Resolving via Micropay Gateway → Solana payment required</div>
+                </div>
+              </div>
+            );
+            if (msg.role === 'payment') {
+              const isConfirmed = msg.paymentStatus === 'confirmed';
+              const isFailed = msg.paymentStatus === 'failed';
+              const dotColor = isConfirmed ? 'var(--green)' : isFailed ? 'var(--red)' : 'var(--amber)';
+              return (
+                <div key={i} className="msg-row msg-row-sys">
+                  <div className={`pay-card ${isConfirmed ? 'pay-card-confirmed' : isFailed ? 'pay-card-failed' : ''}`}>
+                    <div className="pay-lbl">Micropay Charge</div>
+                    <div className="pay-amount">${msg.amountUsd?.toFixed(2) ?? '0.05'}</div>
+                    <div style={{ fontSize: '0.6rem', color: 'var(--muted)' }}>USD → SOL · live oracle peg</div>
+                    <span className={`badge ${isConfirmed ? 'badge-confirmed' : isFailed ? 'badge-failed' : 'badge-pending'}`}>
+                      <span className="badge-dot" style={{ background: dotColor, animation: msg.paymentStatus === 'pending' ? 'pulse 2s infinite' : 'none' }} />
+                      {isConfirmed ? 'Settled on Solana' : isFailed ? 'Failed' : 'Awaiting Phantom approval...'}
+                    </span>
+                    {msg.paymentSignature && (
+                      <a className="explorer" href={`https://explorer.solana.com/tx/${msg.paymentSignature}?cluster=devnet`} target="_blank" rel="noreferrer">
+                        ↗ View on Solana Explorer
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+            if (msg.role === 'confirmed') return (
+              <div key={i} className="conf-row">
+                <span style={{ fontSize: '0.7rem' }}>✓</span>
+                <span>{msg.content}</span>
+              </div>
+            );
+            return null;
+          })}
+
+          {(isThinking || isPaymentLoading) && (
+            <div className="msg-row msg-row-agent">
+              <div className="thinking">
+                <div className="dot" /><div className="dot" /><div className="dot" />
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {messages.length <= 1 && (
+          <div className="prompts-bar">
+            {SUGGESTED_PROMPTS.map(p => (
+              <button key={p} className="chip" onClick={() => handleSend(p)}>{p}</button>
+            ))}
+          </div>
+        )}
+
+        <div className="input-bar">
+          <div className="input-wrap">
+            <textarea
+              ref={inputRef}
+              className="chat-input"
+              rows={1}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Query market data — e.g. 'Get AAPL real-time quote'"
+              disabled={isThinking || isPaymentLoading}
+            />
+            <button className="send-btn" onClick={() => handleSend()} disabled={!input.trim() || isThinking || isPaymentLoading}>
+              Send ↵
+            </button>
+          </div>
+          <p className="hint">QuantFeed API · Pay-per-call · Powered by Micropay x402 · Solana Devnet</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROOT ─────────────────────────────────────────────────────────────────────
+export default function App() {
+  const [view, setView] = useState<View>('landing');
+  const [showModal, setShowModal] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  const handleConnectWallet = async (): Promise<string | null> => {
+    const provider = window.phantom?.solana || window.solana;
+    if (provider?.isPhantom) {
+      try {
+        const { publicKey } = await provider.connect();
+        const addr = publicKey.toString();
+        setWalletAddress(addr); return addr;
+      } catch { /* rejected */ }
+    }
+    const key = prompt('Enter your Solana devnet public key:');
+    if (key?.trim()) { setWalletAddress(key.trim()); return key.trim(); }
+    return null;
+  };
+
+  const handleEnterConsole = () => setShowModal(true);
+
+  const handleMicropay = async () => {
+    setShowModal(false);
+    const addr = await handleConnectWallet();
+    if (addr) setView('console');
+  };
+
+  return (
+    <>
+      {view === 'landing' && <LandingPage onEnterConsole={handleEnterConsole} />}
+      {view === 'console' && <Console walletAddress={walletAddress} onConnectWallet={handleConnectWallet} />}
+      {showModal && <PaymentModal onMicropay={handleMicropay} onClose={() => setShowModal(false)} />}
+    </>
+  );
 }

@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Micropay Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-surface: #111118;
+  --bg-elevated: #1a1a26;
+  --accent-primary: #00ff88;
+  --accent-secondary: #9945ff;
+  --text-primary: #e8e8f0;
+  --text-muted: #5a5a7a;
+  --border: #1e1e2e;
+  --danger: #ff4455;
+  --warning: #ffaa00;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'IBM Plex Mono', monospace;
+  overflow: hidden;
+}
+
+.layout { display: flex; height: 100vh; overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 240px;
+  min-width: 240px;
+  height: 100vh;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+.sidebar-top { flex: 1; display: flex; flex-direction: column; }
+
+.sidebar-header {
+  padding: 1.5rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  font-family: 'Syne', sans-serif;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent-primary);
+  letter-spacing: -0.02em;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.devnet-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  background: rgba(255,170,0,0.15);
+  color: #ffaa00;
+  border: 1px solid #ffaa00;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.sidebar-nav { padding: 0.75rem 0; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1.25rem;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.nav-item:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.nav-item.active {
+  color: var(--accent-primary);
+  border-left: 2px solid var(--accent-primary);
+  background: rgba(0,255,136,0.05);
+}
+.nav-icon { font-size: 0.75rem; width: 16px; text-align: center; font-style: normal; }
+
+.sidebar-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+/* MAIN */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* HEADER */
+.header {
+  height: 64px;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-primary);
+  flex-shrink: 0;
+}
+
+.header-left { display: flex; align-items: center; gap: 1rem; }
+
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent-primary);
+  animation: pulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
+  50% { opacity:0.7; box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+}
+
+.header-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:600; color:var(--text-primary); }
+.header-sub { font-size:0.7rem; color:var(--text-muted); margin-top:2px; }
+
+.btn-primary {
+  background: var(--accent-primary); color:#000;
+  font-family:'IBM Plex Mono',monospace; font-size:0.8rem; font-weight:600;
+  padding:0.45rem 1rem; border:none; border-radius:4px;
+  cursor:pointer; transition:opacity 150ms;
+}
+.btn-primary:hover { opacity:0.85; }
+
+.wallet-pill {
+  display:flex; align-items:center; gap:0.5rem;
+  background:var(--bg-elevated); border:1px solid var(--border);
+  border-radius:4px; padding:0.4rem 0.875rem;
+  font-size:0.75rem; color:var(--accent-primary);
+}
+
+/* CHAT */
+.chat-area {
+  flex:1; overflow-y:auto; padding:2rem;
+  display:flex; flex-direction:column; gap:1rem;
+  scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+}
+.chat-area::-webkit-scrollbar { width:4px; }
+.chat-area::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+@keyframes fadeInUp {
+  from { opacity:0; transform:translateY(8px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.msg-row { display:flex; animation:fadeInUp 0.3s ease forwards; opacity:0; }
+.msg-row.user  { justify-content:flex-end; }
+.msg-row.agent { justify-content:flex-start; }
+.msg-row.sys   { justify-content:flex-start; }
+
+.bubble {
+  max-width:65%; padding:0.75rem 1rem;
+  font-size:0.875rem; line-height:1.6;
+  font-family:'IBM Plex Mono',monospace;
+}
+.bubble.user {
+  background:var(--accent-primary); color:#000; font-weight:500;
+  border-radius:4px 4px 0 4px;
+}
+.bubble.agent {
+  background:var(--bg-surface); border:1px solid var(--border);
+  color:var(--text-primary); border-radius:4px 4px 4px 0;
+}
+
+/* TOOL CALL CARD */
+.tool-card {
+  max-width:65%; background:var(--bg-elevated);
+  border-left:3px solid var(--accent-secondary);
+  border-radius:0 4px 4px 0; padding:0.875rem 1rem;
+  font-family:'IBM Plex Mono',monospace; font-size:0.8rem; color:var(--text-muted);
+  animation:fadeInUp 0.3s ease forwards; opacity:0;
+}
+.tool-label { font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--accent-secondary); margin-bottom:0.25rem; }
+.tool-name  { color:var(--text-primary); font-weight:600; font-size:0.875rem; }
+.tool-sub   { margin-top:4px; font-size:0.75rem; color:var(--text-muted); }
+
+/* PAYMENT CARD */
+.payment-card {
+  max-width:65%; background:var(--bg-elevated);
+  border:1px solid rgba(255,170,0,0.4); border-radius:4px;
+  padding:1rem; font-family:'IBM Plex Mono',monospace; font-size:0.8rem;
+  animation:fadeInUp 0.3s ease forwards; opacity:0;
+  transition:border-color 300ms ease;
+}
+.payment-card.confirmed { border-color:rgba(0,255,136,0.4); }
+.payment-card.failed    { border-color:rgba(255,68,85,0.4); }
+
+.pay-label  { font-size:0.65rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); margin-bottom:0.25rem; }
+.pay-amount { font-size:1.5rem; font-weight:600; color:var(--accent-primary); margin:0.25rem 0; }
+.pay-sub    { font-size:0.7rem; color:var(--text-muted); }
+
+.badge {
+  display:inline-flex; align-items:center; gap:0.35rem;
+  padding:2px 10px; border-radius:999px;
+  font-size:0.7rem; font-weight:500; margin-top:0.5rem;
+}
+.badge.pending   { background:rgba(255,170,0,0.1); color:#ffaa00; border:1px solid rgba(255,170,0,0.3); }
+.badge.confirmed { background:rgba(0,255,136,0.1); color:#00ff88; border:1px solid rgba(0,255,136,0.3); }
+.badge.failed    { background:rgba(255,68,85,0.1);  color:#ff4455; border:1px solid rgba(255,68,85,0.3); }
+
+.badge-dot {
+  width:6px; height:6px; border-radius:50%;
+  display:inline-block; flex-shrink:0;
+}
+
+.explorer-link {
+  display:block; margin-top:0.5rem; font-size:0.7rem;
+  color:var(--accent-primary); text-decoration:none; opacity:0.8;
+}
+.explorer-link:hover { opacity:1; text-decoration:underline; }
+
+/* CONFIRMED LINE */
+.confirmed-line {
+  display:flex; align-items:center; gap:0.5rem;
+  font-size:0.75rem; color:var(--accent-primary);
+  animation:fadeInUp 0.3s ease forwards; opacity:0;
+}
+
+/* THINKING */
+.thinking {
+  display:flex; align-items:center; gap:5px;
+  padding:0.75rem 1rem; background:var(--bg-surface);
+  border:1px solid var(--border); border-radius:4px; width:fit-content;
+}
+.dot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--text-muted); animation:bounce 1.2s ease infinite;
+}
+.dot:nth-child(2) { animation-delay:0.2s; }
+.dot:nth-child(3) { animation-delay:0.4s; }
+
+@keyframes bounce {
+  0%,60%,100% { transform:translateY(0); }
+  30% { transform:translateY(-6px); }
+}
+
+/* TYPEWRITER */
+.cursor-blink {
+  display:inline-block; animation:blink 1s step-end infinite;
+  color:var(--accent-primary); margin-left:1px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* PROMPTS */
+.prompts-bar { display:flex; gap:0.5rem; flex-wrap:wrap; padding:0 2rem 0.75rem; }
+.chip {
+  display:inline-flex; align-items:center;
+  padding:0.35rem 0.875rem; border:1px solid var(--border);
+  border-radius:999px; font-family:'IBM Plex Mono',monospace;
+  font-size:0.75rem; cursor:pointer; color:var(--text-muted); background:transparent;
+  transition:all 150ms ease;
+}
+.chip:hover { border-color:var(--accent-primary); color:var(--accent-primary); }
+
+/* INPUT */
+.input-bar { padding:0 2rem 1.5rem; flex-shrink:0; }
+.input-wrapper {
+  display:flex; gap:0.75rem; align-items:flex-end;
+  background:var(--bg-elevated); border:1px solid var(--border);
+  border-radius:4px; padding:0.75rem;
+  transition:border-color 150ms, box-shadow 150ms;
+}
+.input-wrapper:focus-within {
+  border-color:var(--accent-primary);
+  box-shadow:0 0 0 1px rgba(0,255,136,0.2);
+}
+.chat-input {
+  flex:1; background:transparent; border:none; outline:none;
+  color:var(--text-primary); font-family:'IBM Plex Mono',monospace;
+  font-size:0.875rem; resize:none; line-height:1.5;
+  min-height:24px; max-height:120px;
+}
+.chat-input::placeholder { color:var(--text-muted); }
+
+.send-btn {
+  background:var(--accent-primary); color:#000;
+  font-family:'IBM Plex Mono',monospace; font-size:0.8rem; font-weight:600;
+  padding:0.45rem 1.25rem; border:none; border-radius:4px;
+  cursor:pointer; transition:opacity 150ms, transform 150ms;
+  white-space:nowrap; flex-shrink:0;
+}
+.send-btn:hover { opacity:0.85; }
+.send-btn:active { transform:scale(0.97); }
+.send-btn:disabled { background:var(--bg-surface); color:var(--text-muted); cursor:not-allowed; }
+
+.input-hint { text-align:center; font-size:0.7rem; color:var(--text-muted); margin-top:0.5rem; }
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-header">
+        <span class="logo">Micropay Bazaar</span>
+        <span class="devnet-badge">Devnet</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a class="nav-item" href="#"><i class="nav-icon">▦</i>Dashboard</a>
+        <a class="nav-item" href="#"><i class="nav-icon">⬡</i>API Keys</a>
+        <a class="nav-item" href="#"><i class="nav-icon">↯</i>Transactions</a>
+        <a class="nav-item" href="#"><i class="nav-icon">◈</i>Treasury</a>
+        <a class="nav-item" href="#"><i class="nav-icon">+</i>Register API</a>
+        <a class="nav-item active" href="#"><i class="nav-icon">▶</i>Playground</a>
+      </nav>
+    </div>
+    <div class="sidebar-footer">
+      <div>v1.0.0 · Solana Devnet</div>
+      <div>HackIllinois 2026</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-left">
+        <div class="live-dot"></div>
+        <div>
+          <div class="header-title">Agent Playground</div>
+          <div class="header-sub">x402 · OpenRouter · Solana Devnet</div>
+        </div>
+        <span class="devnet-badge">Devnet</span>
+      </div>
+      <div id="wallet-area">
+        <button class="btn-primary" onclick="connectWallet()">Connect Wallet</button>
+      </div>
+    </header>
+
+    <!-- CHAT AREA -->
+    <div class="chat-area" id="chat"></div>
+
+    <!-- SUGGESTED PROMPTS -->
+    <div class="prompts-bar" id="prompts-bar">
+      <button class="chip" onclick="sendPrompt(this.textContent)">What's the weather in Chicago?</button>
+      <button class="chip" onclick="sendPrompt(this.textContent)">Get me AAPL stock price</button>
+      <button class="chip" onclick="sendPrompt(this.textContent)">Search: Solana x402 protocol</button>
+      <button class="chip" onclick="sendPrompt(this.textContent)">Convert 100 USD to SOL</button>
+    </div>
+
+    <!-- INPUT -->
+    <div class="input-bar">
+      <div class="input-wrapper">
+        <textarea
+          id="chat-input"
+          class="chat-input"
+          rows="1"
+          placeholder="Ask your agent — e.g. 'What's the weather in Chicago?'"
+          onkeydown="handleKey(event)"
+        ></textarea>
+        <button class="send-btn" id="send-btn" onclick="handleSend()">Send ↵</button>
+      </div>
+      <p class="input-hint">Micropay Gateway · Solana Devnet · Enter to send</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const BACKEND_URL = 'http://localhost:4000';
+const API_KEY = 'mp_live_test_123';
+let isThinking = false;
+let walletAddress = null;
+let history = [];
+
+// ── DOM helpers ──────────────────────────────────────────────
+const chat = () => document.getElementById('chat');
+const addEl = (el) => { chat().appendChild(el); el.scrollIntoView({ behavior: 'smooth', block: 'end' }); };
+
+function row(align) {
+  const d = document.createElement('div');
+  d.className = `msg-row ${align}`;
+  return d;
+}
+
+// ── Message types ────────────────────────────────────────────
+function userBubble(text) {
+  const r = row('user');
+  const b = document.createElement('div');
+  b.className = 'bubble user';
+  b.textContent = text;
+  r.appendChild(b); addEl(r);
+}
+
+function agentBubble(text, typewrite = true) {
+  const r = row('agent');
+  const b = document.createElement('div');
+  b.className = 'bubble agent';
+  r.appendChild(b); addEl(r);
+  if (typewrite) typewriter(b, text);
+  else b.textContent = text;
+  return b;
+}
+
+function toolCallCard(toolName) {
+  const d = document.createElement('div');
+  d.className = 'tool-card';
+  d.innerHTML = `
+    <div class="tool-label">⬡ Tool Invocation</div>
+    <div class="tool-name">${toolName}</div>
+    <div class="tool-sub">Micropay Gateway → Registry Match → Payment Required</div>
+  `;
+  addEl(d);
+}
+
+function paymentCard(amountUsd) {
+  const d = document.createElement('div');
+  d.className = 'payment-card';
+  d.innerHTML = `
+    <div class="pay-label">Payment Required</div>
+    <div class="pay-amount">$${Number(amountUsd).toFixed(2)}</div>
+    <div class="pay-sub">USD → SOL (live oracle peg)</div>
+    <span class="badge pending" id="pay-badge">
+      <span class="badge-dot" style="background:#ffaa00;animation:pulse 2s infinite"></span>
+      Awaiting Phantom approval...
+    </span>
+  `;
+  addEl(d);
+  return d;
+}
+
+function updatePaymentCard(card, status, sig) {
+  card.classList.toggle('confirmed', status === 'confirmed');
+  card.classList.toggle('failed', status === 'failed');
+  const badge = card.querySelector('#pay-badge');
+  if (status === 'confirmed') {
+    badge.className = 'badge confirmed';
+    badge.innerHTML = `<span class="badge-dot" style="background:#00ff88"></span> Settled`;
+    if (sig) {
+      const link = document.createElement('a');
+      link.className = 'explorer-link';
+      link.href = `https://explorer.solana.com/tx/${sig}?cluster=devnet`;
+      link.target = '_blank';
+      link.textContent = '↗ View on Solana Explorer';
+      card.appendChild(link);
+    }
+  } else {
+    badge.className = 'badge failed';
+    badge.innerHTML = `<span class="badge-dot" style="background:#ff4455"></span> Failed`;
+  }
+}
+
+function confirmedLine(text) {
+  const d = document.createElement('div');
+  d.className = 'confirmed-line';
+  d.innerHTML = `<span style="font-size:0.7rem">✓</span><span>${text}</span>`;
+  addEl(d);
+}
+
+function showThinking() {
+  const d = document.createElement('div');
+  d.className = 'msg-row agent'; d.id = 'thinking';
+  d.innerHTML = `<div class="thinking"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  addEl(d);
+}
+function hideThinking() { document.getElementById('thinking')?.remove(); }
+
+// ── Typewriter ───────────────────────────────────────────────
+function typewriter(el, text) {
+  let i = 0;
+  el.innerHTML = '';
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor-blink'; cursor.textContent = '▊';
+  el.appendChild(cursor);
+  const interval = setInterval(() => {
+    if (i < text.length) {
+      el.insertBefore(document.createTextNode(text[i]), cursor);
+      i++;
+      el.parentElement?.parentElement?.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      clearInterval(interval);
+      cursor.remove();
+    }
+  }, 18);
+}
+
+// ── Wallet ───────────────────────────────────────────────────
+function connectWallet() {
+  // Try real Phantom first
+  const provider = window.phantom?.solana || window.solana;
+  if (provider?.isPhantom) {
+    provider.connect().then(({ publicKey }) => {
+      setWallet(publicKey.toString());
+    }).catch(() => promptForKey());
+  } else {
+    promptForKey();
+  }
+}
+
+function promptForKey() {
+  const key = prompt('Enter your Solana devnet public key:');
+  if (key && key.trim()) setWallet(key.trim());
+}
+
+function setWallet(address) {
+  walletAddress = address;
+  document.getElementById('wallet-area').innerHTML = `
+    <div class="wallet-pill">
+      <div class="live-dot" style="width:6px;height:6px"></div>
+      ${address.slice(0,4)}...${address.slice(-4)}
+    </div>
+  `;
+}
+
+// ── Send flow ────────────────────────────────────────────────
+function sendPrompt(text) {
+  document.getElementById('chat-input').value = text;
+  handleSend();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+}
+
+async function handleSend() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || isThinking) return;
+
+  document.getElementById('prompts-bar').style.display = 'none';
+  input.value = '';
+  isThinking = true;
+  document.getElementById('send-btn').disabled = true;
+
+  userBubble(text);
+  history.push({ role: 'user', content: text });
+  showThinking();
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
+      body: JSON.stringify({ messages: history }),
+    });
+    const data = await res.json();
+    hideThinking();
+
+    if (data.status === 'requires_signature') {
+      toolCallCard(data.tool_name ?? 'External API');
+      const card = paymentCard(data.amount_usd ?? 0.01);
+
+      try {
+        const sig = await executePayment(data.amount_usd ?? 0.01, data.service_id ?? 'srv_001');
+        updatePaymentCard(card, 'confirmed', sig);
+        confirmedLine('Payment settled on Solana Devnet. Executing tool...');
+        showThinking();
+
+        const resume = await fetch(`${BACKEND_URL}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
+          body: JSON.stringify({ messages: history, payment_signature: sig }),
+        });
+        const rd = await resume.json();
+        hideThinking();
+        const reply = rd.choices?.[0]?.message?.content ?? 'Task complete.';
+        agentBubble(reply);
+        history.push({ role: 'assistant', content: reply });
+      } catch (err) {
+        updatePaymentCard(card, 'failed');
+      }
+      return;
+    }
+
+    const reply = data.choices?.[0]?.message?.content ?? 'No response.';
+    agentBubble(reply);
+    history.push({ role: 'assistant', content: reply });
+
+  } catch {
+    hideThinking();
+    agentBubble('⚠ Backend unreachable. Start the server on port 4000.', false);
+  } finally {
+    isThinking = false;
+    document.getElementById('send-btn').disabled = false;
+    input.focus();
+  }
+}
+
+async function executePayment(amountUsd, serviceId) {
+  const provider = window.phantom?.solana || window.solana;
+
+  if (provider?.isPhantom) {
+    const { publicKey } = await provider.connect();
+    const chargeRes = await fetch(`${BACKEND_URL}/v1/charges`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${API_KEY}` },
+      body: JSON.stringify({ service_id: serviceId, amount_usd: amountUsd, source_wallet: publicKey.toString() }),
+    });
+    const { transaction_payload } = await chargeRes.json();
+    const { Transaction } = await import('https://esm.sh/@solana/web3.js');
+    const tx = Transaction.from(Uint8Array.from(atob(transaction_payload), c => c.charCodeAt(0)));
+    const { signature } = await provider.signAndSendTransaction(tx);
+    return signature;
+  }
+
+  // Demo mode — simulate payment
+  await new Promise(r => setTimeout(r, 1800));
+  return 'DEMO_SIG_' + Math.random().toString(36).slice(2, 12).toUpperCase();
+}
+
+// Init message
+agentBubble('Agent online. I can discover and pay for live data tools automatically using Solana micropayments. What do you need?');
+</script>
+</body>
+</html>

@@ -1,59 +1,56 @@
 import { useState } from 'react';
-import axios from 'axios';
 import { Transaction } from '@solana/web3.js';
 import { Buffer } from 'buffer';
-import { getPhantomProvider } from '../utils/phantom';
+
+const BACKEND_URL = 'https://micropay.up.railway.app';
+const API_KEY = 'test_api_key_123';
+const DESTINATION_WALLET = '2Hn6ESeMRqfVDTptanXgK6vDEpgJGnp4rG6Ls3dzszv8'; // ask Member 2 for this
 
 export const usePayment = () => {
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState(null);
-    const [signature, setSignature] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [signature, setSignature] = useState(null);
 
-    const executePayment = async () => {
-        setIsLoading(true);
-        setError(null);
-        setSignature(null);
+  const executePayment = async (amountUsd = 1.00, sourceWallet) => {
+    setIsLoading(true);
+    setError(null);
+    setSignature(null);
 
-        try {
-            const provider = getPhantomProvider();
-            if (!provider) {
-                throw new Error('Phantom wallet not found or extension not installed.');
-            }
+    try {
+      // Step 1: Get unsigned transaction from backend
+      const res = await fetch(`${BACKEND_URL}/api/v1/charges`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({
+          amount_usd: amountUsd,
+          source_wallet: sourceWallet,
+          destination_wallet: DESTINATION_WALLET,
+        }),
+      });
 
-            const { publicKey } = await provider.connect();
+      const data = await res.json();
+      if (!data.transaction_payload) throw new Error('No transaction payload returned.');
 
-            const response = await axios.post(
-                'http://localhost:3000/api/v1/charges',
-                {
-                    amount_usd: 0.05,
-                    source_wallet: publicKey.toString(),
-                    destination_wallet: 'HRX8iSq6U5J2z3s698t6g3T8d9q1PqAQRr6b9sZ6mR' // Replace with your hardcoded dev pubkey
-                },
-                {
-                    headers: {
-                        Authorization: 'Bearer test_api_key_123',
-                    },
-                }
-            );
+      // Step 2: Decode Base64 tx
+      const tx = Transaction.from(Buffer.from(data.transaction_payload, 'base64'));
 
-            const payload = response.data.transaction_payload;
-            if (!payload) {
-                throw new Error('Invalid response from payment server.');
-            }
+      // Step 3: Send to Phantom
+      const provider = window.phantom?.solana || window.solana;
+      if (!provider) throw new Error('Phantom not found.');
+      const { signature: sig } = await provider.signAndSendTransaction(tx);
 
-            const tx = Transaction.from(Buffer.from(payload, 'base64'));
-            const { signature: computedSignature } = await provider.signAndSendTransaction(tx);
+      setSignature(sig);
+      return { signature: sig, ...data };
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-            setSignature(computedSignature);
-            return computedSignature;
-        } catch (err) {
-            const errMsg = err.response?.data?.error || err.message || 'Payment execution failed';
-            setError(errMsg);
-            throw err;
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return { isLoading, error, signature, executePayment };
+  return { isLoading, error, signature, executePayment };
 };
