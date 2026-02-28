@@ -26,7 +26,7 @@ export const usePayment = () => {
         },
         body: JSON.stringify({
           amount_usd: amountUsd,
-          source_wallet: sourceWallet,
+          source_wallet: 'AuofYo21iiX8NQtgWBXLRFMiWfv83z2CbnhPNen6WNt5',
           destination_wallet: DESTINATION_WALLET,
         }),
       });

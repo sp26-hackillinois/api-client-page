@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { usePayment } from '../hooks/usePayment';
+import { usePayment, type PaymentResult } from '../hooks/usePayment';
 
 declare global {
   interface Window {
@@ -67,7 +67,6 @@ function TypewriterText({ text, onDone }: { text: string; onDone?: () => void })
   return <span>{displayed}{!done && <span className="cur">▊</span>}</span>;
 }
 
-// ─── MODAL ────────────────────────────────────────────────────────────────────
 function PaymentModal({ onMicropay, onClose }: { onMicropay: () => void; onClose: () => void }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -76,12 +75,10 @@ function PaymentModal({ onMicropay, onClose }: { onMicropay: () => void; onClose
           <div className="modal-title">Access API Console</div>
           <div className="modal-sub">Choose how you want to pay for API calls</div>
         </div>
-
-        {/* OPTION A — old way */}
         <div className="modal-option modal-option-old">
           <div className="modal-option-badge modal-badge-old">Traditional</div>
           <div className="modal-option-title">Add $10.00 Credit</div>
-          <div className="modal-option-desc">Pre-load a balance before making any API calls. Unused credits don't roll over. Minimum top-up required.</div>
+          <div className="modal-option-desc">Pre-load a balance before making any API calls. Unused credits don&apos;t roll over. Minimum top-up required.</div>
           <ul className="modal-pain-list">
             <li>⚠ Pay upfront before using anything</li>
             <li>⚠ Lose unused balance at month end</li>
@@ -90,24 +87,20 @@ function PaymentModal({ onMicropay, onClose }: { onMicropay: () => void; onClose
           </ul>
           <button className="modal-btn-old" disabled>Add $10 Credit</button>
         </div>
-
-        {/* DIVIDER */}
         <div className="modal-divider">
           <div className="modal-divider-line" />
           <span className="modal-divider-text">or</span>
           <div className="modal-divider-line" />
         </div>
-
-        {/* OPTION B — Micropay */}
         <div className="modal-option modal-option-new">
           <div className="modal-option-badge modal-badge-new">✦ Powered by Solana</div>
-          <div className="modal-option-title modal-title-new">Pay Per Call · Micropay</div>
+          <div className="modal-option-title modal-title-new">Micropay x402 · Powered by Solana</div>
           <div className="modal-option-desc">No upfront cost. Each API call costs exactly $0.05, settled instantly on Solana. No subscriptions, no minimums, no waste.</div>
           <ul className="modal-green-list">
             <li>✓ Pay only for what you use</li>
             <li>✓ Instant Solana settlement</li>
             <li>✓ No credit card required</li>
-            <li>✓ $0.05 per call, that's it</li>
+            <li>✓ $0.05 per call, that&apos;s it</li>
           </ul>
           <button className="modal-btn-new" onClick={onMicropay}>
             Connect Wallet &amp; Start →
@@ -118,11 +111,9 @@ function PaymentModal({ onMicropay, onClose }: { onMicropay: () => void; onClose
   );
 }
 
-// ─── LANDING PAGE ─────────────────────────────────────────────────────────────
 function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
   return (
     <div className="landing">
-      {/* TOP NAV */}
       <nav className="landing-nav">
         <span className="landing-logo">QuantFeed</span>
         <div className="landing-nav-links">
@@ -132,8 +123,6 @@ function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
           <button className="landing-nav-cta" onClick={onEnterConsole}>API Console →</button>
         </div>
       </nav>
-
-      {/* HERO */}
       <div className="landing-hero">
         <div className="landing-hero-badge">Financial Market Data API</div>
         <h1 className="landing-h1">Real-time market data.<br />Pay per call.</h1>
@@ -144,8 +133,6 @@ function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
           <button className="landing-btn-primary" onClick={onEnterConsole}>Go to API Console →</button>
           <a href="#" className="landing-btn-secondary">View Docs</a>
         </div>
-
-        {/* LIVE TICKERS */}
         <div className="landing-tickers">
           {TICKERS.map(t => (
             <div key={t.sym} className="landing-ticker">
@@ -156,8 +143,6 @@ function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
           ))}
         </div>
       </div>
-
-      {/* FEATURES */}
       <div className="landing-features">
         <div className="landing-feature">
           <div className="landing-feature-icon">◈</div>
@@ -180,8 +165,6 @@ function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
           <div className="landing-feature-desc">Test every endpoint in the browser. See transactions settle in real-time.</div>
         </div>
       </div>
-
-      {/* ENDPOINTS TABLE */}
       <div className="landing-endpoints">
         <div className="landing-section-title">Endpoints</div>
         <div className="landing-ep-table">
@@ -194,13 +177,10 @@ function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
           ))}
         </div>
       </div>
-
-      {/* CTA BAR */}
       <div className="landing-cta-bar">
         <div className="landing-cta-text">No credit card. No signup. Just connect your wallet.</div>
         <button className="landing-btn-primary" onClick={onEnterConsole}>Try the API Console →</button>
       </div>
-
       <div className="landing-footer">
         QuantFeed v2.1.0 · Payments by <span>Micropay x402</span> · Solana Devnet
       </div>
@@ -208,7 +188,6 @@ function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
   );
 }
 
-// ─── CONSOLE ──────────────────────────────────────────────────────────────────
 function Console({ walletAddress, onConnectWallet }: { walletAddress: string | null; onConnectWallet: () => Promise<string | null> }) {
   const [messages, setMessages] = useState<Message[]>([{
     role: 'assistant',
@@ -238,7 +217,8 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
     setIsThinking(false);
 
     try {
-      const result = await executePayment(0.05, wallet);
+      const result: PaymentResult | undefined = await executePayment(0.05, wallet);
+      if (!result) throw new Error('No result from payment gateway.');
       setMessages(prev => prev.map((m, i) => i === prev.length - 1
         ? { ...m, paymentStatus: 'confirmed' as PaymentStatus, paymentSignature: result.signature } : m));
       addMessage({ role: 'confirmed', content: 'Payment confirmed. Fetching market data...' });
@@ -261,7 +241,6 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
 
   return (
     <div className="console-root">
-      {/* SIDEBAR */}
       <aside className="sidebar">
         <div className="sb-header">
           <span className="sb-logo">QuantFeed</span>
@@ -297,8 +276,6 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
           <p>Payments by <span>Micropay x402</span></p>
         </div>
       </aside>
-
-      {/* MAIN */}
       <div className="main">
         <header className="header">
           <div className="hdr-left">
@@ -319,7 +296,6 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
             )}
           </div>
         </header>
-
         <div className="chat-area">
           {messages.map((msg, i) => {
             if (msg.role === 'user') return (
@@ -374,7 +350,6 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
             );
             return null;
           })}
-
           {(isThinking || isPaymentLoading) && (
             <div className="msg-row msg-row-agent">
               <div className="thinking">
@@ -384,7 +359,6 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
           )}
           <div ref={bottomRef} />
         </div>
-
         {messages.length <= 1 && (
           <div className="prompts-bar">
             {SUGGESTED_PROMPTS.map(p => (
@@ -392,7 +366,6 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
             ))}
           </div>
         )}
-
         <div className="input-bar">
           <div className="input-wrap">
             <textarea
@@ -416,7 +389,6 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
   );
 }
 
-// ─── ROOT ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [view, setView] = useState<View>('landing');
   const [showModal, setShowModal] = useState(false);
