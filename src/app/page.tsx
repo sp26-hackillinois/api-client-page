@@ -31,10 +31,10 @@ const TICKERS = [
 ];
 
 const ENDPOINTS = [
-  { name: 'GET /quote', price: '$0.05', desc: 'Real-time stock quote' },
-  { name: 'GET /ohlcv', price: '$0.05', desc: 'OHLCV candlestick data' },
-  { name: 'GET /news',  price: '$0.05', desc: 'Market news feed' },
-  { name: 'GET /macro', price: '$0.05', desc: 'Macro economic indicators' },
+  { name: 'GET /quote', price: '$0.01', desc: 'Real-time stock quote' },
+  { name: 'GET /ohlcv', price: '$0.01', desc: 'OHLCV candlestick data' },
+  { name: 'GET /news',  price: '$0.01', desc: 'Market news feed' },
+  { name: 'GET /macro', price: '$0.01', desc: 'Macro economic indicators' },
 ];
 
 const SUGGESTED_PROMPTS = [
@@ -95,12 +95,12 @@ function PaymentModal({ onMicropay, onClose }: { onMicropay: () => void; onClose
         <div className="modal-option modal-option-new">
           <div className="modal-option-badge modal-badge-new">✦ Powered by Solana</div>
           <div className="modal-option-title modal-title-new">Pay Per Call · Micropay</div>
-          <div className="modal-option-desc">No upfront cost. Each API call costs exactly $0.05, settled instantly on Solana. No subscriptions, no minimums, no waste.</div>
+          <div className="modal-option-desc">No upfront cost. Each API call costs exactly $0.01, settled instantly on Solana. No subscriptions, no minimums, no waste.</div>
           <ul className="modal-green-list">
             <li>✓ Pay only for what you use</li>
             <li>✓ Instant Solana settlement</li>
             <li>✓ No credit card required</li>
-            <li>✓ $0.05 per call, that&apos;s it</li>
+            <li>✓ $0.01 per call, that&apos;s it</li>
           </ul>
           <button className="modal-btn-new" onClick={onMicropay}>
             Connect Wallet &amp; Start →
@@ -127,7 +127,7 @@ function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
         <div className="landing-hero-badge">Financial Market Data API</div>
         <h1 className="landing-h1">Real-time market data.<br />Pay per call.</h1>
         <p className="landing-p">
-          QuantFeed delivers institutional-grade financial data — quotes, OHLCV, news, and macro indicators — with no subscriptions, no minimums. Each API call costs exactly $0.05, settled instantly on Solana via Micropay x402.
+          QuantFeed delivers institutional-grade financial data — quotes, OHLCV, news, and macro indicators — with no subscriptions, no minimums. Each API call costs exactly $0.01, settled instantly on Solana via Micropay x402.
         </p>
         <div className="landing-hero-actions">
           <button className="landing-btn-primary" onClick={onEnterConsole}>Go to API Console →</button>
@@ -151,7 +151,7 @@ function LandingPage({ onEnterConsole }: { onEnterConsole: () => void }) {
         </div>
         <div className="landing-feature">
           <div className="landing-feature-icon">⬡</div>
-          <div className="landing-feature-title">$0.05 Per Call</div>
+          <div className="landing-feature-title">$0.01 Per Call</div>
           <div className="landing-feature-desc">No monthly fees. No minimums. Pay exactly for what you use.</div>
         </div>
         <div className="landing-feature">
@@ -212,12 +212,12 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
     addMessage({ role: 'user', content: trimmed });
     setInput('');
     setIsThinking(true);
-    addMessage({ role: 'tool_call', content: '', toolName: detectTool(trimmed), amountUsd: 0.05 });
-    addMessage({ role: 'payment', content: '', amountUsd: 0.05, paymentStatus: 'pending' });
+    addMessage({ role: 'tool_call', content: '', toolName: detectTool(trimmed), amountUsd: 0.01 });
+    addMessage({ role: 'payment', content: '', amountUsd: 0.01, paymentStatus: 'pending' });
     setIsThinking(false);
 
     try {
-      const result: PaymentResult | undefined = await executePayment(0.05, wallet);
+      const result: PaymentResult | undefined = await executePayment(0.01, wallet);
       if (!result) throw new Error('No result from payment gateway.');
       setMessages(prev => prev.map((m, i) => i === prev.length - 1
         ? { ...m, paymentStatus: 'confirmed' as PaymentStatus, paymentSignature: result.signature } : m));
@@ -327,7 +327,7 @@ function Console({ walletAddress, onConnectWallet }: { walletAddress: string | n
                 <div key={i} className="msg-row msg-row-sys">
                   <div className={`pay-card ${isConfirmed ? 'pay-card-confirmed' : isFailed ? 'pay-card-failed' : ''}`}>
                     <div className="pay-lbl">Micropay Charge</div>
-                    <div className="pay-amount">${msg.amountUsd?.toFixed(2) ?? '0.05'}</div>
+                    <div className="pay-amount">${msg.amountUsd?.toFixed(2) ?? '0.01'}</div>
                     <div style={{ fontSize: '0.6rem', color: 'var(--muted)' }}>USD → SOL · live oracle peg</div>
                     <span className={`badge ${isConfirmed ? 'badge-confirmed' : isFailed ? 'badge-failed' : 'badge-pending'}`}>
                       <span className="badge-dot" style={{ background: dotColor, animation: msg.paymentStatus === 'pending' ? 'pulse 2s infinite' : 'none' }} />
